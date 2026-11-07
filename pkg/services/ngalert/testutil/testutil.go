@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/infra/db"
 	"github.com/grafana/grafana/pkg/infra/kvstore"
 	"github.com/grafana/grafana/pkg/infra/serverlock"
@@ -36,7 +35,7 @@ import (
 	resourcepb "github.com/grafana/grafana/pkg/storage/unified/resourcepb"
 )
 
-func SetupFolderService(tb testing.TB, cfg *setting.Cfg, db db.DB, bus *bus.InProcBus, features featuremgmt.FeatureToggles, ac accesscontrol.AccessControl) folder.Service {
+func SetupFolderService(tb testing.TB, cfg *setting.Cfg, db db.DB, _ any, features featuremgmt.FeatureToggles, ac accesscontrol.AccessControl) folder.Service {
 	tb.Helper()
 	searchMock := resource.NewMockResourceClient(tb)
 	searchMock.On("Search", mock.Anything, mock.Anything, mock.Anything).Return(&resourcepb.ResourceSearchResponse{TotalHits: 0}, nil).Maybe()

@@ -28,12 +28,12 @@ import (
 
 	folderv1 "github.com/grafana/grafana/apps/folder/pkg/apis/folder/v1"
 	"github.com/grafana/grafana/pkg/apimachinery/identity"
-	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
 	"github.com/grafana/grafana/pkg/services/ngalert/metrics"
 	"github.com/grafana/grafana/pkg/services/ngalert/models"
 	"github.com/grafana/grafana/pkg/services/ngalert/store/rules"
+	"github.com/grafana/grafana/pkg/services/sqlstore"
 	"github.com/grafana/grafana/pkg/setting"
 )
 
@@ -90,7 +90,7 @@ type Service struct {
 	folders  folderPatcher
 }
 
-func NewService(cfg *setting.Cfg, b bus.Bus, store rules.FolderRuleCounter, orgs syncerOrgStore, clients resource.ClientGenerator, m *metrics.FolderLabelSyncer) *Service {
+func NewService(cfg *setting.Cfg, sqlStore *sqlstore.SQLStore, store rules.FolderRuleCounter, orgs syncerOrgStore, clients resource.ClientGenerator, m *metrics.FolderLabelSyncer) *Service {
 	s := &Service{
 		store:            store,
 		orgs:             orgs,
@@ -104,7 +104,7 @@ func NewService(cfg *setting.Cfg, b bus.Bus, store rules.FolderRuleCounter, orgs
 		dirty:            make(map[models.FolderKey]struct{}),
 		wake:             make(chan struct{}, 1),
 	}
-	b.AddEventListener(s.handleRuleChange)
+	sqlStore.Bus().AddEventListener(s.handleRuleChange)
 	return s
 }
 
