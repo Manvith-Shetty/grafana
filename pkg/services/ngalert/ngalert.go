@@ -27,7 +27,6 @@ import (
 
 	"github.com/grafana/grafana/pkg/api/routing"
 	"github.com/grafana/grafana/pkg/apimachinery/identity"
-	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/configprovider"
 	"github.com/grafana/grafana/pkg/expr"
 	"github.com/grafana/grafana/pkg/infra/db"
@@ -72,6 +71,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/quota"
 	"github.com/grafana/grafana/pkg/services/rendering"
 	"github.com/grafana/grafana/pkg/services/secrets"
+	"github.com/grafana/grafana/pkg/services/sqlstore"
 	"github.com/grafana/grafana/pkg/services/user"
 	"github.com/grafana/grafana/pkg/setting"
 )
@@ -82,7 +82,7 @@ func ProvideService(
 	dataSourceCache datasources.CacheService,
 	dataSourceService datasources.DataSourceService,
 	routeRegister routing.RouteRegister,
-	sqlStore db.DB,
+	sqlStore *sqlstore.SQLStore,
 	kvStore kvstore.KVStore,
 	expressionService *expr.Service,
 	dataProxy *datasourceproxy.DataSourceProxyService,
@@ -95,7 +95,8 @@ func ProvideService(
 	ac accesscontrol.AccessControl,
 	dashboardService dashboards.DashboardService,
 	renderService rendering.Service,
-	bus bus.Bus,
+	// TODO(dusk): the bus parameter is no longer used; remove it and regenerate wire once callers are updated.
+	_ any,
 	accesscontrolService accesscontrol.Service,
 	annotationsRepo annotations.Repository,
 	pluginsStore pluginstore.Store,
@@ -133,7 +134,6 @@ func ProvideService(
 		accesscontrol:             ac,
 		dashboardService:          dashboardService,
 		renderService:             renderService,
-		bus:                       bus,
 		AccesscontrolService:      accesscontrolService,
 		annotationsRepo:           annotationsRepo,
 		pluginsStore:              pluginsStore,
@@ -156,7 +156,7 @@ func ProvideService(
 		return ng, nil
 	}
 
-	if err := ng.init(); err != nil {
+	if err := ng.init(sqlStore); err != nil {
 		return nil, err
 	}
 
@@ -211,7 +211,6 @@ type AlertNG struct {
 	orgService                org.Service
 	cfgProvider               configprovider.ConfigProvider
 
-	bus             bus.Bus
 	pluginsStore    pluginstore.Store
 	tracer          tracing.Tracer
 	clientGenerator resource.ClientGenerator
@@ -244,7 +243,7 @@ func (ng *AlertNG) alertmanagerStore() notifier.AlertingStore {
 	}
 }
 
-func (ng *AlertNG) init() error {
+func (ng *AlertNG) init(sqlStore *sqlstore.SQLStore) error {
 	// AlertNG should be initialized before the cancellation deadline of initCtx
 	initCtx, cancelFunc := context.WithTimeout(context.Background(), ng.Cfg.UnifiedAlerting.InitializationTimeout)
 	defer cancelFunc()
@@ -665,7 +664,7 @@ func (ng *AlertNG) init() error {
 
 	//nolint:staticcheck // not yet migrated to OpenFeature
 	if ng.FeatureToggles.IsEnabledGlobally(featuremgmt.FlagAlertingFolderHasRulesLabel) {
-		ng.folderLabelSyncer = folderlabelsyncer.NewService(ng.Cfg, ng.bus, ng.ruleStore, ng.store, ng.clientGenerator,
+		ng.folderLabelSyncer = folderlabelsyncer.NewService(ng.Cfg, sqlStore, ng.ruleStore, ng.store, ng.clientGenerator,
 			ng.Metrics.GetFolderLabelSyncerMetrics())
 	}
 
